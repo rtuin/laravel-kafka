@@ -6,6 +6,10 @@
         {
             "type": "vcs",
             "url": "git@github.com:rtuin/schema-registry-php-client.git"
+        },
+        {
+            "type": "vcs",
+            "url": "git@github.com:rtuin/avro-serde-php.git"
         }
     ],
     "require": {
@@ -13,7 +17,7 @@
         "ext-rdkafka": "^5.0|^4.0",
         "phpunit/phpunit": "^9.5",
         "monolog/monolog": "^2.3",
-        "flix-tech/avro-serde-php": "^1.7",
+        "flix-tech/avro-serde-php": "dev-tmp-version-fix@dev",
         "flix-tech/confluent-schema-registry-api": "dev-widen-psr7-req@dev"
     },
     "require-dev": {
