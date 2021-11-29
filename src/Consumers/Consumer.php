@@ -2,6 +2,7 @@
 
 namespace Junges\Kafka\Consumers;
 
+use Closure;
 use Junges\Kafka\Commit\CommitterFactory;
 use Junges\Kafka\Commit\Contracts\Committer;
 use Junges\Kafka\Commit\NativeSleeper;
@@ -44,6 +45,8 @@ class Consumer
     private Retryable $retryable;
     private CommitterFactory $committerFactory;
     private MessageDeserializer $decoder;
+    private bool $stopRequested = false;
+    private ?Closure $onStopConsume = null;
 
     /**
      * @param \Junges\Kafka\Config\Config $config
@@ -65,6 +68,7 @@ class Consumer
      */
     public function consume(): void
     {
+        $this->cancelStopConsume();
         $this->consumer = app(KafkaConsumer::class, [
             'conf' => $this->setConf($this->config->getConsumerOptions()),
         ]);
@@ -78,7 +82,39 @@ class Consumer
 
         do {
             $this->retryable->retry(fn () => $this->doConsume());
-        } while (! $this->maxMessagesLimitReached());
+        } while (! $this->maxMessagesLimitReached() && ! $this->stopRequested);
+
+        if ($this->onStopConsume) {
+            Closure::fromCallable($this->onStopConsume)();
+        }
+    }
+
+    /**
+     * Requests the consumer to stop after it's finished processing any messages to allow graceful exit
+     *
+     * @param Closure|null $onStop
+     */
+    public function stopConsume(?Closure $onStop = null): void
+    {
+        $this->stopRequested = true;
+        $this->onStopConsume = $onStop;
+    }
+
+    /**
+     * Will cancel the stopConsume request initiated by calling the stopConsume method
+     */
+    public function cancelStopConsume(): void
+    {
+        $this->stopRequested = false;
+        $this->onStopConsume = null;
+    }
+
+    /**
+     * Count the number of messages consumed by this consumer
+     */
+    public function consumedMessagesCount(): int
+    {
+        return $this->messageCounter->messagesCounted();
     }
 
     /**
@@ -89,7 +125,7 @@ class Consumer
      */
     private function doConsume()
     {
-        $message = $this->consumer->consume(120000);
+        $message = $this->consumer->consume(2000);
         $this->handleMessage($message);
     }
 
